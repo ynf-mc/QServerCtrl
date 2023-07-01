@@ -82,16 +82,16 @@ class CloudServiceController:
         If so, stop the server after $timeout seconds if no one is online.
         """
         server = JavaServer.lookup(self.get_play_address())
-        try:
-            while True:
+        while True:
+            try:
                 if server.status().players.online == 0:
                     sleep(self.timeout)
                     if server.status().players.online == 0:
                         self.stop()
                         break
                 sleep(5)
-        except Exception as e:
-            e.print_stack()
+            except Exception as e:
+                print(e)
 
 
 class MainController:
