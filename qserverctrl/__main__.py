@@ -108,6 +108,10 @@ class MainController:
                 msg += f" at {controller.get_play_address()}"
             msg += f" \n{controller.description}\n\n"
         return msg
+    
+    def get_help(self) -> str:
+        """Returns the message to be sent to the QQ group."""
+        return "Available commands:\n/ctrl list\n/ctrl start <name>\n/ctrl stop <name>"
 
 
 class QQBot(websocket.WebSocketApp):
@@ -143,6 +147,8 @@ class QQBot(websocket.WebSocketApp):
             self.send_message(self.controller.start(command[2]))
         elif command[1] == "stop":
             self.send_message(self.controller.stop(command[2]))
+        elif command[1] == "help":
+            self.send_message(self.controller.get_help())
 
     def send_message(self, message):
         """Send message to the QQ group."""
