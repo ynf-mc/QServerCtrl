@@ -12,9 +12,25 @@ import argparse
 import json
 from html import unescape
 from time import sleep
+import threading
 from mcstatus import JavaServer
 import websocket
 from qserverctrl.server import *
+
+
+class StoppableThread(threading.Thread):
+    """Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition."""
+
+    def __init__(self,  *args, **kwargs):
+        super(StoppableThread, self).__init__(*args, **kwargs)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
 
 
 class CloudServiceController:
@@ -33,14 +49,25 @@ class CloudServiceController:
         self.port = port
         self.timeout = timeout
         self.cloud_service_provider = cloud_service_provider
-        self.poll_status_thread = None
+        self.poll_status_thread: StoppableThread = None
+        if cloud_service_provider.is_running():
+            self.poll_status_thread = StoppableThread(target=self.pool_status)
+            self.poll_status_thread.start()
 
     def start(self) -> Optional[str]:
+        if self.cloud_service_provider.is_running():
+            return self.get_play_address()
         if not self.cloud_service_provider.start():
             return None
+        self.poll_status_thread = StoppableThread(target=self.pool_status)
+        self.poll_status_thread.start()
         return self.get_play_address()
 
     def stop(self) -> bool:
+        if not self.cloud_service_provider.is_running():
+            return True
+        if self.poll_status_thread is not None:
+            self.poll_status_thread.stop()
         return self.cloud_service_provider.stop()
 
     def is_running(self) -> bool:
