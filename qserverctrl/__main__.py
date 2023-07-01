@@ -102,11 +102,11 @@ class MainController:
         """Returns the message to be sent to the QQ group."""
         msg = "Available servers:\n"
         for controller in self.cloud_service_controllers:
-            msg += f"{controller.name}"
+            msg += f"-> {controller.name}"
             if controller.is_running():
                 msg += ": running"
-                msg += f" at {controller.get_play_address()}\n"
-            msg += f" {controller.description}\n\n"
+                msg += f" at {controller.get_play_address()}"
+            msg += f" \n{controller.description}\n\n"
         return msg
 
 
