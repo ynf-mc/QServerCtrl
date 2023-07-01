@@ -93,6 +93,13 @@ class CloudServiceController:
                         break
             except Exception as e:
                 print(f"[{self.poll_status_thread}] Error polling server: {e}")
+                sleep(self.timeout)
+                try:  # FIXME: Whacky code
+                    _ = server.status()
+                except Exception as e:
+                    print(f"[{self.poll_status_thread}] Error polling server: {e}")
+                    self.stop()
+                    break
             sleep(5)
 
 
@@ -176,7 +183,7 @@ class QQBot(websocket.WebSocketApp):
             self.send_message(self.controller.start(command[2]))
         elif command[1] == "stop":
             self.send_message(self.controller.stop(command[2]))
-        elif command[1] == "help":
+        elif command[1] == "help" or len(command) == 1:
             self.send_message(self.controller.get_help())
 
     def send_message(self, message):
