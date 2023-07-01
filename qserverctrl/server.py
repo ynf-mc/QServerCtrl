@@ -80,7 +80,7 @@ class TencentCloudServiceProvider(AbstractCloudServiceProvider):
         req = models.StopInstancesRequest()
         req.InstanceIds = [self.instance_id]
         req.StopType = "SOFT_FIRST"
-        req.StoppedMode = "SOFT_CHARGING"
+        req.StoppedMode = "STOP_CHARGING"
         resp = self.client.StopInstances(req)
         return self.poll_latest_operation()
 
