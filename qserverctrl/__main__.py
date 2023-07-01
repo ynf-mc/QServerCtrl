@@ -165,7 +165,7 @@ class QQBot(websocket.WebSocketApp):
         if msg["group_id"] != self.qq_group:
             return
         if msg["message"].startswith("/ctrl"):
-            self.handle_command(msg)
+            threading.Thread(target=self.handle_command, args=(msg,)).start()
 
     def handle_command(self, msg):
         """Handle commands from the QQ group."""
