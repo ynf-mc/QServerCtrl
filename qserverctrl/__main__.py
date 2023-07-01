@@ -9,9 +9,11 @@ Avaliable commands for users:
 
 
 import argparse
+import json
+from html import unescape
 from time import sleep
 from mcstatus import JavaServer
-import websockets
+import websocket
 from qserverctrl.server import *
 
 
@@ -33,7 +35,7 @@ class CloudServiceController:
         self.cloud_service_provider = cloud_service_provider
         self.poll_status_thread = None
 
-    def start(self) -> str:
+    def start(self) -> Optional[str]:
         if not self.cloud_service_provider.start():
             return None
         return self.get_play_address()
@@ -108,44 +110,53 @@ class MainController:
         return msg
 
 
-class QQBot:
+class QQBot(websocket.WebSocketApp):
     """Interacts with go-cqhttp with Websocket."""
 
     def __init__(self, api: str, qq_group: int, controller: MainController) -> None:
         self.api = api
         self.qq_group = qq_group
         self.controller = controller
+        websocket.enableTrace(True)
+        super().__init__(api, on_message=self.on_message)
 
-    def start(self):
-        """Connect to the websocket."""
-        with websockets.connect(self.api) as ws:
-            while True:
-                msg = ws.recv()
-                if msg["message_type"] == "group" and msg["group_id"] == self.qq_group:
-                    reply = self.handle_message(msg["message"])
-                    if reply is not None:
-                        ws.send(
-                            {
-                                "action": "send_group_msg",
-                                "params": {
-                                    "group_id": self.qq_group,
-                                    "message": reply,
-                                },
-                            }
-                        )
+    def start(self) -> bool:
+        """Start the bot and block the current process."""
+        return self.run_forever()
 
-    def handle_message(self, msg: str):
-        """Handle the message from the QQ group."""
-        if msg.startswith("/ctrl "):
-            msg = msg[6:]
-            if msg.startswith("list"):
-                return self.controller.list_server()
-            elif msg.startswith("start "):
-                server_name = msg[6:]
-                return self.controller.start(server_name)
-            elif msg.startswith("stop "):
-                server_name = msg[5:]
-                return self.controller.stop(server_name)
+    def on_message(self, ws, message):
+        """Handle messages from the QQ group."""
+        msg = json.loads(message)
+        if msg["message_type"] != "group":
+            return
+        if msg["group_id"] != self.qq_group:
+            return
+        if msg["message"].startswith("/ctrl"):
+            self.handle_command(msg)
+
+    def handle_command(self, msg):
+        """Handle commands from the QQ group."""
+        command = msg["message"].split(" ")
+        if command[1] == "list":
+            self.send_message(self.controller.list_server())
+        elif command[1] == "start":
+            self.send_message(self.controller.start(command[2]))
+        elif command[1] == "stop":
+            self.send_message(self.controller.stop(command[2]))
+
+    def send_message(self, message):
+        """Send message to the QQ group."""
+        self.send(
+            json.dumps(
+                {
+                    "action": "send_group_msg",
+                    "params": {
+                        "group_id": self.qq_group,
+                        "message": unescape(message),
+                    },
+                }
+            )
+        )
 
 
 def main():
@@ -157,7 +168,11 @@ def main():
         "-c", "--config", type=str, default="config.py", help="Configuration script."
     )
     args = parser.parse_args()
-    bot = None
-    with open(args.config) as f:
-        exec(f.read())
+    _locals = locals()
+    exec(open(args.config).read(), globals(), _locals)
+    bot: QQBot = _locals["bot"]
     bot.start()
+
+
+if __name__ == "__main__":
+    main()

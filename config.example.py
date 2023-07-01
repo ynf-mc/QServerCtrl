@@ -14,7 +14,7 @@ s1c = CloudServiceController(
 )
 
 main_controller = MainController([s1c])
-qqbot = QQBot(
+bot = QQBot(
     api="ws://localhost:6700",
     qq_group=12345678,
     controller=main_controller,

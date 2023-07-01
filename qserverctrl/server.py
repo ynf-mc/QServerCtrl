@@ -1,3 +1,4 @@
+from typing import Optional
 from tencentcloud.common.credential import Credential
 from tencentcloud.cvm.v20170312 import cvm_client, models
 from time import sleep
@@ -15,7 +16,7 @@ class AbstractCloudServiceProvider:
     def is_running(self) -> bool:
         raise NotImplementedError()
 
-    def get_ip(self) -> str:
+    def get_ip(self) -> Optional[str]:
         """ "Get the server IP address. Return None if the server is not running."""
         raise NotImplementedError()
 
@@ -83,7 +84,7 @@ class TencentCloudServiceProvider(AbstractCloudServiceProvider):
         resp = self.client.StopInstances(req)
         return self.poll_latest_operation()
 
-    def get_ip(self) -> str:
+    def get_ip(self) -> Optional[str]:
         if not self.is_running():
             return None
         description = self.describe_instance()
