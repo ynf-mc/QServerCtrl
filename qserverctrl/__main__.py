@@ -44,12 +44,12 @@ class CloudServiceController:
         timeout: int,
         cloud_service_provider: AbstractCloudServiceProvider,
     ) -> None:
-        self.name = name
-        self.description = description
-        self.port = port
-        self.timeout = timeout
-        self.cloud_service_provider = cloud_service_provider
-        self.poll_status_thread: StoppableThread = None
+        self.name: str = name
+        self.description: str = description
+        self.port: int = port
+        self.timeout: int = timeout
+        self.cloud_service_provider: AbstractCloudServiceProvider = cloud_service_provider
+        self.poll_status_thread: Optional[StoppableThread] = None
         if cloud_service_provider.is_running():
             self.poll_status_thread = StoppableThread(target=self.pool_status)
             self.poll_status_thread.start()
@@ -59,6 +59,8 @@ class CloudServiceController:
             return self.get_play_address()
         if not self.cloud_service_provider.start():
             return None
+        if self.poll_status_thread is not None:
+            self.poll_status_thread.stop()
         self.poll_status_thread = StoppableThread(target=self.pool_status)
         self.poll_status_thread.start()
         return self.get_play_address()
@@ -89,9 +91,9 @@ class CloudServiceController:
                     if server.status().players.online == 0:
                         self.stop()
                         break
-                sleep(5)
             except Exception as e:
-                print(e)
+                print(f"[{self.poll_status_thread}] Error polling server: {e}")
+            sleep(5)
 
 
 class MainController:
