@@ -97,9 +97,10 @@ class CloudServiceController:
                 try:  # FIXME: Whacky code
                     _ = server.status()
                 except Exception as e:
-                    print(f"[{self.poll_status_thread}] Error polling server: {e}")
+                    print(f"[{self.poll_status_thread}] Error polling server: {e}. Stopping.")
                     self.stop()
-                    break
+            if self.poll_status_thread.stopped():
+                break
             sleep(5)
 
 
@@ -164,7 +165,7 @@ class QQBot(websocket.WebSocketApp):
         """Start the bot and block the current process."""
         return self.run_forever()
 
-    def on_message(self, ws, message):
+    def on_message(self, _, message: str):
         """Handle messages from the QQ group."""
         msg = json.loads(message)
         if msg["message_type"] != "group":
