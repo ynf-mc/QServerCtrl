@@ -48,7 +48,7 @@ class TencentCloudServiceProvider(AbstractCloudServiceProvider):
         """
         for _ in range(max_retry):
             description = self.describe_instance()
-            if description.InstanceSet[0].LatestOperationState == "SUCCESSFUL":
+            if description.InstanceSet[0].LatestOperationState == "SUCCESS":
                 return True
             elif description.InstanceSet[0].LatestOperationState == "FAILED":
                 return False
