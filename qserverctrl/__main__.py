@@ -133,8 +133,10 @@ class MainController:
                 if addr is None:
                     # return f"Failed to start {server_name}."
                     BOT.send_message(f"Failed to start {servername}.")
+                    return
                 # return "The server is started at " + addr
                 BOT.send_message(f"The server is started at {addr}")
+                return
         # return "No such server."
         BOT.send_message("No such server.")
 
@@ -149,11 +151,14 @@ class MainController:
                 if not controller.is_running():
                     # return f"Server {server_name} is not running."
                     BOT.send_message(f"Server {servername} is not running.")
+                    return
                 if controller.stop():
                     # return f"Server {server_name} stopped."
                     BOT.send_message(f"Server {servername} stopped.")
+                    return
                 # return "Failed to stop the server."
                 BOT.send_message(f"Failed to stop {servername}.")
+                return
         # return "No such server."
         BOT.send_message("No such server.")
 
@@ -206,12 +211,13 @@ class QQBot(websocket.WebSocketApp):
                     args=(msg["message"],)
                 ).start()
         except Exception as e:
-            print(f"Error handling message: {e}")
+            pass  # Slience errors
+            # print(f"Error handling message: {e}")
 
     def handle_command(self, msg: str):
         """Handle commands from the QQ group."""
         command = msg.split(" ")
-        if len(command) != 2:
+        if len(command) != 3:
             self.controller.get_help()
         if command[1] == "list":
             self.controller.list_server()
