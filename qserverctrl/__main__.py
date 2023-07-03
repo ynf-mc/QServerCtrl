@@ -219,6 +219,7 @@ class QQBot(websocket.WebSocketApp):
         command = msg.split(" ")
         if len(command) != 3:
             self.controller.get_help()
+            return
         if command[1] == "list":
             self.controller.list_server()
         elif command[1] == "start":
