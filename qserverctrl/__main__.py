@@ -217,7 +217,7 @@ class QQBot(websocket.WebSocketApp):
     def handle_command(self, msg: str):
         """Handle commands from the QQ group."""
         command = msg.split(" ")
-        if len(command) != 3:
+        if len(command) < 2:
             self.controller.get_help()
             return
         if command[1] == "list":
@@ -226,7 +226,7 @@ class QQBot(websocket.WebSocketApp):
             self.controller.start(command[2])
         elif command[1] == "stop":
             self.controller.stop(command[2])
-        elif command[1] == "help":
+        else:
             self.controller.get_help()
 
     def send_message(self, message: str):
