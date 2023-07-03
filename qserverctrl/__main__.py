@@ -83,20 +83,22 @@ class CloudServiceController:
         Poll the status of the server until the no one is online.
         If so, stop the server after $timeout seconds if no one is online.
         """
-        server = JavaServer.lookup(self.get_play_address())
         while True:
             try:
+                server = JavaServer.lookup(self.get_play_address())
+                print(f"[{self.poll_status_thread}] Server players: {server.status().players.online}")
                 if server.status().players.online == 0:
                     sleep(self.timeout)
                     if server.status().players.online == 0:
+                        print(f"[{self.poll_status_thread}] No one is online. Stopping.")
                         self.stop()
-                        break
             except Exception as e:
                 print(f"[{self.poll_status_thread}] Error polling server: {e}")
                 sleep(self.timeout)
                 try:  # FIXME: Whacky code
-                    _ = server.status()
-                except Exception as e:
+                    server = JavaServer.lookup(self.get_play_address())
+                    _ = server.status().players.online
+                except Exception as e:  # If error persists, stop the server
                     print(f"[{self.poll_status_thread}] Error polling server: {e}. Stopping.")
                     self.stop()
             if self.poll_status_thread.stopped():
@@ -117,9 +119,11 @@ class MainController:
         """
         for controller in self.cloud_service_controllers:
             if controller.name == server_name:
+                if controller.is_running():
+                    return f"Server {server_name} is already running at {controller.get_play_address()}."
                 addr = controller.start()
                 if addr is None:
-                    return "Failed to start the server."
+                    return f"Failed to start {server_name}."
                 return "The server is started at " + addr
         return "No such server."
 
@@ -130,8 +134,10 @@ class MainController:
         """
         for controller in self.cloud_service_controllers:
             if controller.name == server_name:
+                if not controller.is_running():
+                    return f"Server {server_name} is not running."
                 if controller.stop():
-                    return "The server is stopped."
+                    return f"Server {server_name} stopped."
                 return "Failed to stop the server."
         return "No such server."
 
@@ -139,11 +145,12 @@ class MainController:
         """Returns the message to be sent to the QQ group."""
         msg = "Available servers:\n"
         for controller in self.cloud_service_controllers:
-            msg += f"-> {controller.name}"
+            msg += f"-> {controller.name} "
             if controller.is_running():
-                msg += ": running"
-                msg += f" at {controller.get_play_address()}"
-            msg += f" \n{controller.description}\n\n"
+                msg += f"running at {controller.get_play_address()}"
+            else:
+                msg += "stopped"
+            msg += f"\n{controller.description}\n\n"
         return msg
     
     def get_help(self) -> str:
@@ -173,11 +180,14 @@ class QQBot(websocket.WebSocketApp):
         if msg["group_id"] != self.qq_group:
             return
         if msg["message"].startswith("/ctrl"):
-            threading.Thread(target=self.handle_command, args=(msg,)).start()
+            threading.Thread(
+                target=self.handle_command,
+                args=(msg["message"],)
+            ).start()
 
-    def handle_command(self, msg):
+    def handle_command(self, msg: str):
         """Handle commands from the QQ group."""
-        command = msg["message"].split(" ")
+        command = msg.split(" ")
         if command[1] == "list":
             self.send_message(self.controller.list_server())
         elif command[1] == "start":
