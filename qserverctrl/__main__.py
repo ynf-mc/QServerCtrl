@@ -83,15 +83,21 @@ class CloudServiceController:
         Poll the status of the server until the no one is online.
         If so, stop the server after $timeout seconds if no one is online.
         """
+        global BOT
         while True:
             try:
                 server = JavaServer.lookup(self.get_play_address())
                 print(f"[{self.poll_status_thread}] Server players: {server.status().players.online}")
+                # BOT.send_message(f"{self.name} players: {server.status().players.online}")
                 if server.status().players.online == 0:
+                    BOT.send_message(f"{self.name} has no players and will be stopped in {self.timeout} seconds.")
                     sleep(self.timeout)
                     if server.status().players.online == 0:
                         print(f"[{self.poll_status_thread}] No one is online. Stopping.")
+                        BOT.send_message(f"{self.name} No one is online. Stopping.")
                         self.stop()
+                    else:
+                        BOT.send_message(f"{self.name} has {server.status().players.online} players. Stop cancelled.")
             except Exception as e:
                 print(f"[{self.poll_status_thread}] Error polling server: {e}")
                 sleep(self.timeout)
@@ -100,6 +106,7 @@ class CloudServiceController:
                     _ = server.status().players.online
                 except Exception as e:  # If error persists, stop the server
                     print(f"[{self.poll_status_thread}] Error polling server: {e}. Stopping.")
+                    BOT.send_message(f"{self.name} Error polling server: {e}. Stopping.")
                     self.stop()
             if self.poll_status_thread.stopped():
                 break
@@ -112,37 +119,47 @@ class MainController:
     def __init__(self, cloud_service_controllers: list[CloudServiceController]) -> None:
         self.cloud_service_controllers = cloud_service_controllers
 
-    def start(self, server_name: str) -> str:
+    def start(self, servername: str) -> None:
         """
         Returns whether the server is started successfully.
         Returns the message to be sent to the QQ group.
         """
+        global BOT
         for controller in self.cloud_service_controllers:
-            if controller.name == server_name:
+            if controller.name == servername:
                 if controller.is_running():
-                    return f"Server {server_name} is already running at {controller.get_play_address()}."
+                    return f"Server {servername} is already running at {controller.get_play_address()}."
                 addr = controller.start()
                 if addr is None:
-                    return f"Failed to start {server_name}."
-                return "The server is started at " + addr
-        return "No such server."
+                    # return f"Failed to start {server_name}."
+                    BOT.send_message(f"Failed to start {servername}.")
+                # return "The server is started at " + addr
+                BOT.send_message(f"The server is started at {addr}")
+        # return "No such server."
+        BOT.send_message("No such server.")
 
-    def stop(self, server_name: str) -> str:
+    def stop(self, servername: str) -> None:
         """
         Returns whether the server is stopped successfully.
         Returns the message to be sent to the QQ group.
         """
+        global BOT
         for controller in self.cloud_service_controllers:
-            if controller.name == server_name:
+            if controller.name == servername:
                 if not controller.is_running():
-                    return f"Server {server_name} is not running."
+                    # return f"Server {server_name} is not running."
+                    BOT.send_message(f"Server {servername} is not running.")
                 if controller.stop():
-                    return f"Server {server_name} stopped."
-                return "Failed to stop the server."
-        return "No such server."
+                    # return f"Server {server_name} stopped."
+                    BOT.send_message(f"Server {servername} stopped.")
+                # return "Failed to stop the server."
+                BOT.send_message(f"Failed to stop {servername}.")
+        # return "No such server."
+        BOT.send_message("No such server.")
 
-    def list_server(self) -> str:
+    def list_server(self) -> None:
         """Returns the message to be sent to the QQ group."""
+        global BOT
         msg = "Available servers:\n"
         for controller in self.cloud_service_controllers:
             msg += f"-> {controller.name} "
@@ -151,11 +168,14 @@ class MainController:
             else:
                 msg += "stopped"
             msg += f"\n{controller.description}\n\n"
-        return msg
+        # return msg
+        BOT.send_message(msg)
     
-    def get_help(self) -> str:
+    def get_help(self) -> None:
         """Returns the message to be sent to the QQ group."""
-        return "Available commands:\n/ctrl list\n/ctrl start <name>\n/ctrl stop <name>"
+        global BOT
+        # return "Available commands:\n/ctrl list\n/ctrl start <name>\n/ctrl stop <name>"
+        BOT.send_message("Available commands:\n/ctrl list\n/ctrl start <name>\n/ctrl stop <name>")
 
 
 class QQBot(websocket.WebSocketApp):
@@ -165,7 +185,7 @@ class QQBot(websocket.WebSocketApp):
         self.api = api
         self.qq_group = qq_group
         self.controller = controller
-        websocket.enableTrace(True)
+        websocket.enableTrace(False)
         super().__init__(api, on_message=self.on_message)
 
     def start(self) -> bool:
@@ -174,43 +194,53 @@ class QQBot(websocket.WebSocketApp):
 
     def on_message(self, _, message: str):
         """Handle messages from the QQ group."""
-        msg = json.loads(message)
-        if msg["message_type"] != "group":
-            return
-        if msg["group_id"] != self.qq_group:
-            return
-        if msg["message"].startswith("/ctrl"):
-            threading.Thread(
-                target=self.handle_command,
-                args=(msg["message"],)
-            ).start()
+        try:
+            msg = json.loads(message)
+            if msg["message_type"] != "group":
+                return
+            if msg["group_id"] != self.qq_group:
+                return
+            if msg["message"].startswith("/ctrl"):
+                threading.Thread(
+                    target=self.handle_command,
+                    args=(msg["message"],)
+                ).start()
+        except Exception as e:
+            print(f"Error handling message: {e}")
 
     def handle_command(self, msg: str):
         """Handle commands from the QQ group."""
         command = msg.split(" ")
+        if len(command) != 2:
+            self.controller.get_help()
         if command[1] == "list":
-            self.send_message(self.controller.list_server())
+            self.controller.list_server()
         elif command[1] == "start":
-            self.send_message(self.controller.start(command[2]))
+            self.controller.start(command[2])
         elif command[1] == "stop":
-            self.send_message(self.controller.stop(command[2]))
-        elif command[1] == "help" or len(command) == 1:
-            self.send_message(self.controller.get_help())
+            self.controller.stop(command[2])
+        elif command[1] == "help":
+            self.controller.get_help()
 
-    def send_message(self, message):
+    def send_message(self, message: str):
         """Send message to the QQ group."""
+        unescaped = unescape(message)
+        print(f"Sending message: {unescaped}")
         self.send(
             json.dumps(
                 {
                     "action": "send_group_msg",
                     "params": {
                         "group_id": self.qq_group,
-                        "message": unescape(message),
+                        "message": unescaped,
                     },
                 }
             )
         )
 
+
+# Evil global variable but hey wtf it's just a small script
+BOT: Optional[QQBot] = None
 
 def main():
     parser = argparse.ArgumentParser(
@@ -223,8 +253,10 @@ def main():
     args = parser.parse_args()
     _locals = locals()
     exec(open(args.config).read(), globals(), _locals)
-    bot: QQBot = _locals["bot"]
-    bot.start()
+    global BOT
+    BOT = _locals["bot"]
+    print(f"Bot initialized at {BOT.api} with group {BOT.qq_group}.")
+    BOT.start()
 
 
 if __name__ == "__main__":
