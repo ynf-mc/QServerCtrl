@@ -41,13 +41,15 @@ class CloudServiceController:
         name: str,
         description: str,
         port: int,
-        timeout: int,
+        timeout: float,
+        no_conn_timeout: float,
         cloud_service_provider: AbstractCloudServiceProvider,
     ) -> None:
-        self.name: str = name
-        self.description: str = description
-        self.port: int = port
-        self.timeout: int = timeout
+        self.name = name
+        self.description = description
+        self.port = port
+        self.timeout = timeout
+        self.no_conn_timeout = no_conn_timeout  # Common to last a long time, for example server starting.
         self.cloud_service_provider: AbstractCloudServiceProvider = cloud_service_provider
         self.poll_status_thread: Optional[StoppableThread] = None
         if cloud_service_provider.is_running():
@@ -94,13 +96,13 @@ class CloudServiceController:
                     sleep(self.timeout)
                     if server.status().players.online == 0:
                         print(f"[{self.poll_status_thread}] No one is online. Stopping.")
-                        BOT.send_message(f"{self.name} No one is online. Stopping.")
+                        BOT.send_message(f"{self.name} has no players online. Stopping.")
                         self.stop()
                     else:
                         BOT.send_message(f"{self.name} has {server.status().players.online} players. Stop cancelled.")
             except Exception as e:
                 print(f"[{self.poll_status_thread}] Error polling server: {e}")
-                sleep(self.timeout)
+                sleep(self.no_conn_timeout)
                 try:  # FIXME: Whacky code
                     server = JavaServer.lookup(self.get_play_address())
                     _ = server.status().players.online
